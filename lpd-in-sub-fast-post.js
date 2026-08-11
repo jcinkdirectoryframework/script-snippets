@@ -78,7 +78,7 @@
                 const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
-                const last = doc.querySelector('.last-post')?.textContent.trim();
+                const last = doc.querySelector('.subaccount-last-post')?.textContent.trim();
                 o.textContent = `${name} - Last post: ${parseTime(last)}`;
             } catch {
                 o.textContent = `${name} - Last post: Unavailable`;
@@ -115,7 +115,7 @@
                     const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                     const html = await res.text();
                     const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const last = doc.querySelector('.last-post')?.textContent.trim();
+                    const last = doc.querySelector('.subaccount-last-post')?.textContent.trim();
                     o.textContent = `${name} - Last post: ${parseTime(last)}`;
                 } catch {
                     o.textContent = `${name} - Last post: Unavailable`;
@@ -145,7 +145,7 @@
                     const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                     const html = await res.text();
                     const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const last = doc.querySelector('.last-post')?.textContent.trim();
+                    const last = doc.querySelector('.subaccount-last-post')?.textContent.trim();
                     o.textContent = `${name} - Last post: ${parseTime(last)}`;
                 } catch {
                     o.textContent = `${name} - Last post: Unavailable`;
