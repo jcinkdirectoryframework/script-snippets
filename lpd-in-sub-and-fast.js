@@ -104,43 +104,60 @@
         }
     }
 
-    // ===== FAST REPLY ADDITION - WRAPPED IN TRY/CATCH =====
+    // ===== FAST REPLY ADDITION WITH DEBUGGING =====
     try {
         if (window.location.href.includes('act=ST')) {
+            console.log('🔴 Fast Reply: On topic page');
+            
             async function updateFastReply(select) {
-                if (select.dataset.loaded) return;
+                console.log('🔴 Fast Reply: updateFastReply called');
+                if (select.dataset.loaded) {
+                    console.log('🔴 Fast Reply: Already loaded, skipping');
+                    return;
+                }
                 select.dataset.loaded = 1;
                 const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value));
+                console.log('🔴 Fast Reply: Found', opts.length, 'accounts to process');
                 if (!opts.length) return;
+                
                 await Promise.all(opts.map(async o => {
                     const name = o.textContent.trim();
+                    console.log('🔴 Fast Reply: Processing', name);
                     try {
                         const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                        console.log('🔴 Fast Reply: Fetch response status for', name, res.status);
                         const html = await res.text();
                         const doc = new DOMParser().parseFromString(html, 'text/html');
                         const last = doc.querySelector('.last-post')?.textContent.trim();
+                        console.log('🔴 Fast Reply: Last post for', name, ':', last);
                         o.textContent = `${name} - Last post: ${parseTime(last)}`;
-                    } catch {
+                    } catch (e) {
+                        console.error('🔴 Fast Reply: Error for', name, ':', e.message);
                         o.textContent = `${name} - Last post: Unavailable`;
                     }
                 }));
+                console.log('🔴 Fast Reply: Update complete');
             }
 
             const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
+            console.log('🔴 Fast Reply: Select found?', !!fastSelect);
             if (fastSelect) {
+                console.log('🔴 Fast Reply: Select has', fastSelect.options.length, 'options');
                 updateFastReply(fastSelect);
             }
 
             const fastObserver = new MutationObserver(() => {
+                console.log('🔴 Fast Reply: Mutation detected');
                 const s = document.querySelector('#post_as_selector select#post_as_menu');
                 if (s && !s.dataset.loaded) {
+                    console.log('🔴 Fast Reply: Found select via observer');
                     updateFastReply(s);
                 }
             });
             fastObserver.observe(document.body, { childList: true, subtree: true });
+            console.log('🔴 Fast Reply: Observer set up');
         }
     } catch (e) {
-        // Silently fail - this prevents the fast reply code from breaking subaccounts
         console.log('Fast reply error (non-critical):', e.message);
     }
 })();
