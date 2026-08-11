@@ -1,4 +1,17 @@
 (() => {
+    // Ensure edit_sub_user exists globally
+    if (typeof window.edit_sub_user !== 'function') {
+        window.edit_sub_user = function() {
+            const menu = document.getElementById('post_as_menu');
+            if (menu && menu.value == -1) {
+                const selector = document.getElementById('post_as_selector');
+                if (selector) {
+                    selector.innerHTML = "<input type='text' class='forminput' name='post_as_username' size='40' placeholder='Enter username of any member here...'>";
+                }
+            }
+        };
+    }
+
     function calcTimeAgo(date) {
         const s = Math.floor((new Date() - date) / 1e3);
         if (s < 60) return 'Just now';
@@ -84,6 +97,11 @@
                 o.textContent = `${name} - Last post: Unavailable`;
             }
         }));
+        // Re-trigger onchange to update any UI that depends on it
+        if (select.onchange) {
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
+        }
     }
 
     function find() {
