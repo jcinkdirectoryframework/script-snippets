@@ -104,38 +104,43 @@
         }
     }
 
-    // ===== FAST REPLY ADDITION =====
-    if (window.location.href.includes('act=ST')) {
-        async function updateFastReply(select) {
-            if (select.dataset.loaded) return;
-            select.dataset.loaded = 1;
-            const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value));
-            if (!opts.length) return;
-            await Promise.all(opts.map(async o => {
-                const name = o.textContent.trim();
-                try {
-                    const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                    const html = await res.text();
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const last = doc.querySelector('.last-post')?.textContent.trim();
-                    o.textContent = `${name} - Last post: ${parseTime(last)}`;
-                } catch {
-                    o.textContent = `${name} - Last post: Unavailable`;
-                }
-            }));
-        }
-
-        const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
-        if (fastSelect) {
-            updateFastReply(fastSelect);
-        }
-
-        const fastObserver = new MutationObserver(() => {
-            const s = document.querySelector('#post_as_selector select#post_as_menu');
-            if (s && !s.dataset.loaded) {
-                updateFastReply(s);
+    // ===== FAST REPLY ADDITION - WRAPPED IN TRY/CATCH =====
+    try {
+        if (window.location.href.includes('act=ST')) {
+            async function updateFastReply(select) {
+                if (select.dataset.loaded) return;
+                select.dataset.loaded = 1;
+                const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value));
+                if (!opts.length) return;
+                await Promise.all(opts.map(async o => {
+                    const name = o.textContent.trim();
+                    try {
+                        const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                        const html = await res.text();
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const last = doc.querySelector('.last-post')?.textContent.trim();
+                        o.textContent = `${name} - Last post: ${parseTime(last)}`;
+                    } catch {
+                        o.textContent = `${name} - Last post: Unavailable`;
+                    }
+                }));
             }
-        });
-        fastObserver.observe(document.body, { childList: true, subtree: true });
+
+            const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
+            if (fastSelect) {
+                updateFastReply(fastSelect);
+            }
+
+            const fastObserver = new MutationObserver(() => {
+                const s = document.querySelector('#post_as_selector select#post_as_menu');
+                if (s && !s.dataset.loaded) {
+                    updateFastReply(s);
+                }
+            });
+            fastObserver.observe(document.body, { childList: true, subtree: true });
+        }
+    } catch (e) {
+        // Silently fail - this prevents the fast reply code from breaking subaccounts
+        console.log('Fast reply error (non-critical):', e.message);
     }
 })();
