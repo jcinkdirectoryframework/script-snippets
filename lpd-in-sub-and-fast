@@ -1,20 +1,4 @@
 (() => {
-    console.log('🔴 V1 Script started');
-    
-    // Ensure edit_sub_user exists globally
-    if (typeof window.edit_sub_user !== 'function') {
-        console.log('📝 Defining edit_sub_user');
-        window.edit_sub_user = function() {
-            const menu = document.getElementById('post_as_menu');
-            if (menu && menu.value == -1) {
-                const selector = document.getElementById('post_as_selector');
-                if (selector) {
-                    selector.innerHTML = "<input type='text' class='forminput' name='post_as_username' size='40' placeholder='Enter username of any member here...'>";
-                }
-            }
-        };
-    }
-
     function calcTimeAgo(date) {
         const s = Math.floor((new Date() - date) / 1e3);
         if (s < 60) return 'Just now';
@@ -36,7 +20,6 @@
         if (!s) return 'No posts yet';
         let d = new Date(s);
         if (!isNaN(d)) return calcTimeAgo(d);
-        
         const today = s.match(/^Today at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
         if (today) {
             let h = +today[1];
@@ -46,7 +29,6 @@
             const now = new Date();
             return calcTimeAgo(new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m));
         }
-        
         const yesterday = s.match(/^Yesterday at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
         if (yesterday) {
             let h = +yesterday[1];
@@ -56,7 +38,6 @@
             const now = new Date();
             return calcTimeAgo(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, h, m));
         }
-        
         const rel = s.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$/i);
         if (rel) {
             const n = +rel[1];
@@ -71,7 +52,6 @@
             else if (u.startsWith('year')) past.setFullYear(now.getFullYear() - n);
             return calcTimeAgo(past);
         }
-        
         d = new Date(s.replace(/(\d{1,2}):(\d{2})\s*(am|pm)/i, (match, h, m, ap) => {
             let hours = +h;
             if (ap.toLowerCase() === 'pm' && hours < 12) hours += 12;
@@ -79,133 +59,93 @@
             return `${hours}:${m}`;
         }));
         if (!isNaN(d)) return calcTimeAgo(d);
-        
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    async function update(select, context = '') {
-        console.log(`🔄 Updating ${context} select:`, select);
-        if (select.dataset.loaded) {
-            console.log(`⏭️ ${context} already loaded, skipping`);
-            return;
-        }
+    async function update(select) {
+        if (select.dataset.loaded) return;
         select.dataset.loaded = 1;
         const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.value !== '------------' && !isNaN(o.value));
-        console.log(`📝 ${context} found ${opts.length} accounts to process`);
         if (!opts.length) return;
-        
         await Promise.all(opts.map(async o => {
             const name = o.textContent.trim();
-            console.log(`🔎 Processing ${context} account: ${name} (ID: ${o.value})`);
             try {
                 const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const last = doc.querySelector('.last-post')?.textContent.trim();
-                console.log(`📝 ${context} ${name} last post:`, last);
                 o.textContent = `${name} - Last post: ${parseTime(last)}`;
-            } catch (e) {
-                console.error(`❌ ${context} Error for ${name}:`, e);
+            } catch {
                 o.textContent = `${name} - Last post: Unavailable`;
             }
         }));
-        console.log(`✅ ${context} update complete`);
-        
         if (select.onchange) {
             const event = new Event('change', { bubbles: true });
             select.dispatchEvent(event);
         }
     }
 
-    function find() {
-        console.log('🔍 Running find()...');
-        let found = false;
-        
-        const sub = document.querySelector('#subacct_link select');
-        console.log('🔍 #subacct_link select:', sub);
-        if (sub && [...sub.options].some(o => o.value && o.value !== '------------' && !isNaN(o.value))) {
-            console.log('✅ Found subaccounts select, updating...');
-            update(sub, 'Subaccounts');
-            found = true;
-        }
-        
-        if (location.href.includes('act=ST')) {
-            console.log('🔍 On act=ST page, looking for fast reply...');
-            const fast = document.querySelector('#post_as_selector select#post_as_menu');
-            console.log('🔍 Fast reply select:', fast);
-            if (fast && [...fast.options].some(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value))) {
-                console.log('✅ Found fast reply select, updating...');
-                update(fast, 'Fast Reply');
-                found = true;
-            }
-        } else {
-            console.log('ℹ️ Not on act=ST page');
-        }
-        
-        console.log(`🔍 find() complete, found: ${found}`);
-        return found;
+    // Update subaccounts
+    const subSelect = document.querySelector('#subacct_link select');
+    if (subSelect && [...subSelect.options].some(o => o.value && o.value !== '------------' && !isNaN(o.value))) {
+        update(subSelect);
     }
 
-    function observe() {
-        console.log('👀 Setting up observers...');
-        
-        const el = document.querySelector('#subacct_link');
-        console.log('🔍 #subacct_link element:', el);
-        if (el) {
-            const obs = new MutationObserver(() => {
-                console.log('👀 Subaccounts mutation detected');
-                const s = document.querySelector('#subacct_link select');
-                if (s && !s.dataset.loaded) {
-                    console.log('✅ Found subaccounts select via observer, updating...');
-                    update(s, 'Subaccounts');
-                }
-            });
-            obs.observe(el, { childList: true, subtree: true });
-            console.log('✅ Subaccounts observer set up');
-        } else {
-            console.log('❌ #subacct_link not found');
+    // Observer for subaccounts
+    const subLink = document.querySelector('#subacct_link');
+    if (subLink) {
+        const obs = new MutationObserver(() => {
+            const s = document.querySelector('#subacct_link select');
+            if (s && !s.dataset.loaded) update(s);
+        });
+        obs.observe(subLink, { childList: true, subtree: true });
+    }
+
+    // Fast Reply - only on topic pages
+    if (location.href.includes('act=ST')) {
+        // Check if fast reply is already open
+        const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
+        if (fastSelect && [...fastSelect.options].some(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value))) {
+            update(fastSelect);
         }
-        
-        if (location.href.includes('act=ST')) {
-            console.log('🔍 Setting up fast reply observers...');
-            const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
-            console.log('🔍 Fast Reply button:', btn);
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    console.log('🔄 Fast Reply button clicked');
+
+        // Method 1: Intercept the ShowHide function
+        const originalShowHide = window.ShowHide;
+        if (typeof originalShowHide === 'function') {
+            window.ShowHide = function(showId, hideId) {
+                originalShowHide(showId, hideId);
+                if (showId === 'qr_open') {
                     setTimeout(() => {
                         const s = document.querySelector('#post_as_selector select#post_as_menu');
-                        console.log('🔍 Fast reply select after click:', s);
-                        if (s && !s.dataset.loaded) {
-                            console.log('✅ Found fast reply select after click, updating...');
-                            update(s, 'Fast Reply');
-                        }
-                    }, 200);
-                });
-                console.log('✅ Fast Reply button listener set up');
-            } else {
-                console.log('❌ Fast Reply button not found');
-            }
-            
-            const obs = new MutationObserver(() => {
-                console.log('👀 Fast reply mutation detected');
-                const s = document.querySelector('#post_as_selector select#post_as_menu');
-                if (s && !s.dataset.loaded) {
-                    console.log('✅ Found fast reply select via observer, updating...');
-                    update(s, 'Fast Reply');
+                        if (s && !s.dataset.loaded) update(s);
+                    }, 100);
                 }
-            });
-            obs.observe(document.body, { childList: true, subtree: true });
-            console.log('✅ Fast reply observer set up');
+            };
         }
-        console.log('👀 Observers setup complete');
-    }
 
-    if (!find()) {
-        console.log('ℹ️ No selects found initially, setting up observers...');
-        observe();
-    } else {
-        console.log('✅ Initial find() found selects, observers not needed');
+        // Method 2: Click listener on the button (as backup)
+        const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                // Use setTimeout to let the DOM update
+                setTimeout(() => {
+                    const s = document.querySelector('#post_as_selector select#post_as_menu');
+                    if (s && !s.dataset.loaded) update(s);
+                }, 100);
+            }, true); // Use capture phase to run before the onclick
+        }
+
+        // Method 3: Mutation observer as fallback
+        const fastObs = new MutationObserver(() => {
+            const s = document.querySelector('#post_as_selector select#post_as_menu');
+            if (s && !s.dataset.loaded) {
+                // Check if the select is visible/accessible
+                const rect = s.getBoundingClientRect();
+                if (rect.width > 0 || rect.height > 0) {
+                    update(s);
+                }
+            }
+        });
+        fastObs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'display'] });
     }
-    console.log('🔴 V1 Script ended');
 })();
