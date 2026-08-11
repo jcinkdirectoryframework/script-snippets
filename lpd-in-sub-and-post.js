@@ -67,7 +67,6 @@
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    // ===== ORIGINAL SUBACCOUNTS CODE - UNCHANGED =====
     async function update(select) {
         if (select.dataset.loaded) return;
         select.dataset.loaded = 1;
@@ -104,8 +103,6 @@
         }
     }
 
-    // ===== POST PAGE ADDITION =====
-    // Only runs on post pages (act=Post)
     if (window.location.href.includes('act=Post')) {
         async function updatePostPage(select) {
             if (select.dataset.loaded) return;
@@ -126,18 +123,12 @@
             }));
         }
 
-        // Update post page select if it exists
         const postSelect = document.querySelector('#post_as_selector select#post_as_menu');
-        if (postSelect) {
-            updatePostPage(postSelect);
-        }
+        if (postSelect) updatePostPage(postSelect);
 
-        // Watch for it appearing (in case it loads later)
         const postObserver = new MutationObserver(() => {
             const s = document.querySelector('#post_as_selector select#post_as_menu');
-            if (s && !s.dataset.loaded) {
-                updatePostPage(s);
-            }
+            if (s && !s.dataset.loaded) updatePostPage(s);
         });
         postObserver.observe(document.body, { childList: true, subtree: true });
     }
