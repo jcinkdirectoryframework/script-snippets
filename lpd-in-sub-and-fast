@@ -1,4 +1,7 @@
 (() => {
+    // Get the base URL
+    const baseUrl = window.location.origin + '/index.php';
+
     function calcTimeAgo(date) {
         const s = Math.floor((new Date() - date) / 1e3);
         if (s < 60) return 'Just now';
@@ -67,25 +70,41 @@
         select.dataset.loaded = 1;
         const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.value !== '------------' && !isNaN(o.value));
         if (!opts.length) return;
-        await Promise.all(opts.map(async o => {
-            const name = o.textContent.trim();
-            try {
-                const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const last = doc.querySelector('.last-post')?.textContent.trim();
-                o.textContent = `${name} - Last post: ${parseTime(last)}`;
-            } catch {
-                o.textContent = `${name} - Last post: Unavailable`;
-            }
-        }));
+        
+        // Process in batches to avoid overwhelming
+        const batchSize = 5;
+        for (let i = 0; i < opts.length; i += batchSize) {
+            const batch = opts.slice(i, i + batchSize);
+            await Promise.all(batch.map(async o => {
+                const name = o.textContent.trim();
+                try {
+                    // Use full URL with proper params
+                    const url = `${baseUrl}?showuser=${o.value}`;
+                    const res = await fetch(url, { 
+                        credentials: 'include',
+                        headers: { 
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'text/html'
+                        }
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const last = doc.querySelector('.last-post')?.textContent.trim();
+                    o.textContent = `${name} - Last post: ${parseTime(last)}`;
+                } catch {
+                    o.textContent = `${name} - Last post: Unavailable`;
+                }
+            }));
+        }
+        
         if (select.onchange) {
             const event = new Event('change', { bubbles: true });
             select.dispatchEvent(event);
         }
     }
 
-    // Update subaccounts
+    // Update subaccounts if they exist
     const subSelect = document.querySelector('#subacct_link select');
     if (subSelect && [...subSelect.options].some(o => o.value && o.value !== '------------' && !isNaN(o.value))) {
         update(subSelect);
@@ -109,43 +128,31 @@
             update(fastSelect);
         }
 
-        // Method 1: Intercept the ShowHide function
-        const originalShowHide = window.ShowHide;
-        if (typeof originalShowHide === 'function') {
-            window.ShowHide = function(showId, hideId) {
-                originalShowHide(showId, hideId);
-                if (showId === 'qr_open') {
-                    setTimeout(() => {
-                        const s = document.querySelector('#post_as_selector select#post_as_menu');
-                        if (s && !s.dataset.loaded) update(s);
-                    }, 100);
-                }
-            };
-        }
-
-        // Method 2: Click listener on the button (as backup)
-        const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
-        if (btn) {
-            btn.addEventListener('click', function(e) {
-                // Use setTimeout to let the DOM update
-                setTimeout(() => {
-                    const s = document.querySelector('#post_as_selector select#post_as_menu');
-                    if (s && !s.dataset.loaded) update(s);
-                }, 100);
-            }, true); // Use capture phase to run before the onclick
-        }
-
-        // Method 3: Mutation observer as fallback
+        // Watch for fast reply appearing via mutation observer
         const fastObs = new MutationObserver(() => {
             const s = document.querySelector('#post_as_selector select#post_as_menu');
             if (s && !s.dataset.loaded) {
-                // Check if the select is visible/accessible
-                const rect = s.getBoundingClientRect();
-                if (rect.width > 0 || rect.height > 0) {
-                    update(s);
-                }
+                update(s);
             }
         });
-        fastObs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'display'] });
+        fastObs.observe(document.body, { childList: true, subtree: true });
+
+        // Also watch for the button click using a more reliable method
+        const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
+        if (btn) {
+            // Override the onclick
+            const originalClick = btn.onclick;
+            btn.onclick = function(e) {
+                // Call original if it exists
+                if (typeof originalClick === 'function') {
+                    originalClick.call(this, e);
+                }
+                // Wait for DOM update
+                setTimeout(() => {
+                    const s = document.querySelector('#post_as_selector select#post_as_menu');
+                    if (s && !s.dataset.loaded) update(s);
+                }, 150);
+            };
+        }
     }
 })();
