@@ -67,7 +67,6 @@
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    // ===== ORIGINAL SUBACCOUNTS CODE - UNCHANGED =====
     async function update(select) {
         if (select.dataset.loaded) return;
         select.dataset.loaded = 1;
@@ -104,8 +103,6 @@
         }
     }
 
-    // ===== FAST REPLY ADDITION =====
-    // Run on topic pages (showtopic in URL) - NOT act=ST
     if (window.location.href.includes('showtopic')) {
         async function updateFastReply(select) {
             if (select.dataset.loaded) return;
@@ -127,15 +124,11 @@
         }
 
         const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
-        if (fastSelect) {
-            updateFastReply(fastSelect);
-        }
+        if (fastSelect) updateFastReply(fastSelect);
 
         const fastObserver = new MutationObserver(() => {
             const s = document.querySelector('#post_as_selector select#post_as_menu');
-            if (s && !s.dataset.loaded) {
-                updateFastReply(s);
-            }
+            if (s && !s.dataset.loaded) updateFastReply(s);
         });
         fastObserver.observe(document.body, { childList: true, subtree: true });
     }
