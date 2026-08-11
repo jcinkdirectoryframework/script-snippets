@@ -18,12 +18,44 @@
 
     function parseTime(s) {
         if (!s) return 'No posts yet';
-        const d = new Date(s);
+        
+        // Try parsing as absolute date
+        let d = new Date(s);
         if (!isNaN(d)) return calcTimeAgo(d);
-        const m = s.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$/i);
-        if (m) {
-            const n = +m[1];
-            const u = m[2].toLowerCase();
+        
+        // Parse "Today at 11:23 am" or "Today at 11:23 AM"
+        const today = s.match(/^Today at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
+        if (today) {
+            const h = +today[1];
+            const m = +today[2];
+            const ap = today[3].toLowerCase();
+            let hours = h;
+            if (ap === 'pm' && h < 12) hours = h + 12;
+            if (ap === 'am' && h === 12) hours = 0;
+            const now = new Date();
+            const past = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, m);
+            return calcTimeAgo(past);
+        }
+        
+        // Parse "Yesterday at 11:23 am" or "Yesterday at 11:23 AM"
+        const yesterday = s.match(/^Yesterday at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
+        if (yesterday) {
+            const h = +yesterday[1];
+            const m = +yesterday[2];
+            const ap = yesterday[3].toLowerCase();
+            let hours = h;
+            if (ap === 'pm' && h < 12) hours = h + 12;
+            if (ap === 'am' && h === 12) hours = 0;
+            const now = new Date();
+            const past = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, hours, m);
+            return calcTimeAgo(past);
+        }
+        
+        // Parse relative time strings like "6 minutes ago"
+        const rel = s.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$/i);
+        if (rel) {
+            const n = +rel[1];
+            const u = rel[2].toLowerCase();
             const now = new Date();
             const past = new Date(now);
             if (u.startsWith('minute')) past.setMinutes(now.getMinutes() - n);
@@ -34,6 +66,16 @@
             else if (u.startsWith('year')) past.setFullYear(now.getFullYear() - n);
             return calcTimeAgo(past);
         }
+        
+        // Try parsing generic date formats like "Jan 15, 2024 11:23 am"
+        d = new Date(s.replace(/(\d{1,2}):(\d{2})\s*(am|pm)/i, (match, h, m, ap) => {
+            let hours = +h;
+            if (ap.toLowerCase() === 'pm' && hours < 12) hours += 12;
+            if (ap.toLowerCase() === 'am' && hours === 12) hours = 0;
+            return `${hours}:${m}`;
+        }));
+        if (!isNaN(d)) return calcTimeAgo(d);
+        
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
