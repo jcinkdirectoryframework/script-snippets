@@ -1,6 +1,9 @@
 (() => {
+    console.log('🔴 V1 Script started');
+    
     // Ensure edit_sub_user exists globally
     if (typeof window.edit_sub_user !== 'function') {
+        console.log('📝 Defining edit_sub_user');
         window.edit_sub_user = function() {
             const menu = document.getElementById('post_as_menu');
             if (menu && menu.value == -1) {
@@ -80,24 +83,34 @@
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    async function update(select) {
-        if (select.dataset.loaded) return;
+    async function update(select, context = '') {
+        console.log(`🔄 Updating ${context} select:`, select);
+        if (select.dataset.loaded) {
+            console.log(`⏭️ ${context} already loaded, skipping`);
+            return;
+        }
         select.dataset.loaded = 1;
         const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.value !== '------------' && !isNaN(o.value));
+        console.log(`📝 ${context} found ${opts.length} accounts to process`);
         if (!opts.length) return;
+        
         await Promise.all(opts.map(async o => {
             const name = o.textContent.trim();
+            console.log(`🔎 Processing ${context} account: ${name} (ID: ${o.value})`);
             try {
                 const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const last = doc.querySelector('.last-post')?.textContent.trim();
+                console.log(`📝 ${context} ${name} last post:`, last);
                 o.textContent = `${name} - Last post: ${parseTime(last)}`;
-            } catch {
+            } catch (e) {
+                console.error(`❌ ${context} Error for ${name}:`, e);
                 o.textContent = `${name} - Last post: Unavailable`;
             }
         }));
-        // Re-trigger onchange to update any UI that depends on it
+        console.log(`✅ ${context} update complete`);
+        
         if (select.onchange) {
             const event = new Event('change', { bubbles: true });
             select.dispatchEvent(event);
@@ -105,44 +118,94 @@
     }
 
     function find() {
+        console.log('🔍 Running find()...');
         let found = false;
+        
         const sub = document.querySelector('#subacct_link select');
+        console.log('🔍 #subacct_link select:', sub);
         if (sub && [...sub.options].some(o => o.value && o.value !== '------------' && !isNaN(o.value))) {
-            update(sub);
+            console.log('✅ Found subaccounts select, updating...');
+            update(sub, 'Subaccounts');
             found = true;
         }
+        
         if (location.href.includes('act=ST')) {
+            console.log('🔍 On act=ST page, looking for fast reply...');
             const fast = document.querySelector('#post_as_selector select#post_as_menu');
+            console.log('🔍 Fast reply select:', fast);
             if (fast && [...fast.options].some(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value))) {
-                update(fast);
+                console.log('✅ Found fast reply select, updating...');
+                update(fast, 'Fast Reply');
                 found = true;
             }
+        } else {
+            console.log('ℹ️ Not on act=ST page');
         }
+        
+        console.log(`🔍 find() complete, found: ${found}`);
         return found;
     }
 
     function observe() {
+        console.log('👀 Setting up observers...');
+        
         const el = document.querySelector('#subacct_link');
+        console.log('🔍 #subacct_link element:', el);
         if (el) {
             const obs = new MutationObserver(() => {
+                console.log('👀 Subaccounts mutation detected');
                 const s = document.querySelector('#subacct_link select');
-                if (s && !s.dataset.loaded) update(s);
+                if (s && !s.dataset.loaded) {
+                    console.log('✅ Found subaccounts select via observer, updating...');
+                    update(s, 'Subaccounts');
+                }
             });
             obs.observe(el, { childList: true, subtree: true });
+            console.log('✅ Subaccounts observer set up');
+        } else {
+            console.log('❌ #subacct_link not found');
         }
+        
         if (location.href.includes('act=ST')) {
+            console.log('🔍 Setting up fast reply observers...');
             const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
-            if (btn) btn.addEventListener('click', () => setTimeout(() => {
-                const s = document.querySelector('#post_as_selector select#post_as_menu');
-                if (s && !s.dataset.loaded) update(s);
-            }, 200));
+            console.log('🔍 Fast Reply button:', btn);
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    console.log('🔄 Fast Reply button clicked');
+                    setTimeout(() => {
+                        const s = document.querySelector('#post_as_selector select#post_as_menu');
+                        console.log('🔍 Fast reply select after click:', s);
+                        if (s && !s.dataset.loaded) {
+                            console.log('✅ Found fast reply select after click, updating...');
+                            update(s, 'Fast Reply');
+                        }
+                    }, 200);
+                });
+                console.log('✅ Fast Reply button listener set up');
+            } else {
+                console.log('❌ Fast Reply button not found');
+            }
+            
             const obs = new MutationObserver(() => {
+                console.log('👀 Fast reply mutation detected');
                 const s = document.querySelector('#post_as_selector select#post_as_menu');
-                if (s && !s.dataset.loaded) update(s);
+                if (s && !s.dataset.loaded) {
+                    console.log('✅ Found fast reply select via observer, updating...');
+                    update(s, 'Fast Reply');
+                }
             });
             obs.observe(document.body, { childList: true, subtree: true });
+            console.log('✅ Fast reply observer set up');
         }
+        console.log('👀 Observers setup complete');
     }
 
-    if (!find()) observe();
+    if (!find()) {
+        console.log('ℹ️ No selects found initially, setting up observers...');
+        observe();
+    } else {
+        console.log('✅ Initial find() found selects, observers not needed');
+    }
+    console.log('🔴 V1 Script ended');
 })();
