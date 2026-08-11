@@ -67,7 +67,6 @@
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    // ===== SUBACCOUNTS - UNCHANGED =====
     async function update(select) {
         if (select.dataset.loaded) return;
         select.dataset.loaded = 1;
@@ -104,7 +103,6 @@
         }
     }
 
-    // ===== FAST REPLY (topic pages with showtopic) =====
     if (window.location.href.includes('showtopic')) {
         async function updateFastReply(select) {
             if (select.dataset.loaded) return;
@@ -135,7 +133,6 @@
         fastObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    // ===== POST PAGE (act=Post) =====
     if (window.location.href.includes('act=Post')) {
         async function updatePostPage(select) {
             if (select.dataset.loaded) return;
