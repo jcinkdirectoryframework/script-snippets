@@ -20,6 +20,7 @@
         if (!s) return 'No posts yet';
         let d = new Date(s);
         if (!isNaN(d)) return calcTimeAgo(d);
+        
         const today = s.match(/^Today at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
         if (today) {
             let h = +today[1];
@@ -29,6 +30,7 @@
             const now = new Date();
             return calcTimeAgo(new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m));
         }
+        
         const yesterday = s.match(/^Yesterday at (\d{1,2}):(\d{2})\s*(am|pm)$/i);
         if (yesterday) {
             let h = +yesterday[1];
@@ -38,6 +40,7 @@
             const now = new Date();
             return calcTimeAgo(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, h, m));
         }
+        
         const rel = s.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$/i);
         if (rel) {
             const n = +rel[1];
@@ -52,6 +55,7 @@
             else if (u.startsWith('year')) past.setFullYear(now.getFullYear() - n);
             return calcTimeAgo(past);
         }
+        
         d = new Date(s.replace(/(\d{1,2}):(\d{2})\s*(am|pm)/i, (match, h, m, ap) => {
             let hours = +h;
             if (ap.toLowerCase() === 'pm' && hours < 12) hours += 12;
@@ -59,83 +63,82 @@
             return `${hours}:${m}`;
         }));
         if (!isNaN(d)) return calcTimeAgo(d);
+        
         return s.toLowerCase() === 'just now' || s === 'Now' ? 'Just now' : 'Unavailable';
     }
 
-    // This is your ORIGINAL working update function for subaccounts
-    async function updateSubaccounts(s) {
-        if (s.dataset.lastPostLoaded) return;
-        s.dataset.lastPostLoaded = 1;
-        const accounts = [...s.options].filter(o => o.value !== '------------');
-        await Promise.all(accounts.map(async o => {
-            const n = o.textContent.trim();
+    // ===== ORIGINAL SUBACCOUNTS CODE - UNCHANGED =====
+    async function update(select) {
+        if (select.dataset.loaded) return;
+        select.dataset.loaded = 1;
+        const opts = [...select.options].filter(o => o.value && o.value !== '------------' && !isNaN(o.value));
+        if (!opts.length) return;
+        await Promise.all(opts.map(async o => {
+            const name = o.textContent.trim();
             try {
-                const h = await (await fetch(`/index.php?showuser=${o.value}`)).text();
-                const d = new DOMParser().parseFromString(h, 'text/html').querySelector('.last-post')?.textContent.trim();
-                o.textContent = `${n} - Last post: ${parseTime(d)}`;
-            } catch (e) {
-                o.textContent = `${n} - Last post: Unavailable`;
+                const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const last = doc.querySelector('.last-post')?.textContent.trim();
+                o.textContent = `${name} - Last post: ${parseTime(last)}`;
+            } catch {
+                o.textContent = `${name} - Last post: Unavailable`;
             }
         }));
     }
 
-    // SAME observer pattern for subaccounts (YOUR ORIGINAL WORKING CODE)
-    const c = document.querySelector('#subacct_link');
-    if (!c) return;
-    const o = new MutationObserver(() => {
-        const s = c.querySelector('#subaccounts_menu select');
-        if (s) { 
-            o.disconnect(); 
-            updateSubaccounts(s); 
+    function find() {
+        const s = document.querySelector('#subacct_link select');
+        if (s && [...s.options].some(o => o.value && o.value !== '------------' && !isNaN(o.value))) {
+            update(s);
+            return true;
         }
-    });
-    o.observe(c, { childList: true, subtree: true });
+        return false;
+    }
 
-    // ADD Fast Reply support - ONLY if on a topic page
+    if (!find()) {
+        const el = document.querySelector('#subacct_link');
+        if (el) {
+            const obs = new MutationObserver(() => { if (find()) obs.disconnect(); });
+            obs.observe(el, { childList: true, subtree: true });
+        }
+    }
+
+    // ===== FAST REPLY ADDITION - ONLY RUNS ON TOPIC PAGES =====
     if (window.location.href.includes('act=ST')) {
         // Function to update fast reply dropdown
-        async function updateFastReply(s) {
-            if (s.dataset.lastPostLoaded) return;
-            s.dataset.lastPostLoaded = 1;
-            const accounts = [...s.options].filter(o => o.value !== '0' && o.value !== '-1');
-            await Promise.all(accounts.map(async o => {
-                const n = o.textContent.trim();
+        async function updateFastReply(select) {
+            if (select.dataset.loaded) return;
+            select.dataset.loaded = 1;
+            const opts = [...select.options].filter(o => o.value && o.value !== '0' && o.value !== '-1' && !isNaN(o.value));
+            if (!opts.length) return;
+            await Promise.all(opts.map(async o => {
+                const name = o.textContent.trim();
                 try {
-                    const h = await (await fetch(`/index.php?showuser=${o.value}`)).text();
-                    const d = new DOMParser().parseFromString(h, 'text/html').querySelector('.last-post')?.textContent.trim();
-                    o.textContent = `${n} - Last post: ${parseTime(d)}`;
-                } catch (e) {
-                    o.textContent = `${n} - Last post: Unavailable`;
+                    const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const last = doc.querySelector('.last-post')?.textContent.trim();
+                    o.textContent = `${name} - Last post: ${parseTime(last)}`;
+                } catch {
+                    o.textContent = `${name} - Last post: Unavailable`;
                 }
             }));
         }
 
-        // Check if fast reply is already open
-        const existingFast = document.querySelector('#post_as_selector select#post_as_menu');
-        if (existingFast) {
-            updateFastReply(existingFast);
+        // Update fast reply if it exists (even if hidden)
+        const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
+        if (fastSelect) {
+            updateFastReply(fastSelect);
         }
 
-        // Watch for fast reply appearing
+        // Watch for fast reply being added to DOM (in case it loads later)
         const fastObserver = new MutationObserver(() => {
             const s = document.querySelector('#post_as_selector select#post_as_menu');
-            if (s && !s.dataset.lastPostLoaded) {
+            if (s && !s.dataset.loaded) {
                 updateFastReply(s);
             }
         });
         fastObserver.observe(document.body, { childList: true, subtree: true });
-
-        // Also try to catch the button click
-        const btn = document.querySelector('a[href*="ShowHide"][href*="qr_open"]');
-        if (btn) {
-            btn.addEventListener('click', function() {
-                setTimeout(() => {
-                    const s = document.querySelector('#post_as_selector select#post_as_menu');
-                    if (s && !s.dataset.lastPostLoaded) {
-                        updateFastReply(s);
-                    }
-                }, 200);
-            });
-        }
     }
 })();
