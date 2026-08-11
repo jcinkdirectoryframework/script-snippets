@@ -104,9 +104,11 @@
         }
     }
 
-    // ===== FAST REPLY ADDITION - ONLY RUNS ON TOPIC PAGES =====
+    // ===== FAST REPLY ADDITION =====
     if (window.location.href.includes('act=ST')) {
-        // Function to update fast reply dropdown
+        // Get the base URL for the site
+        const baseUrl = window.location.origin + '/index.php';
+
         async function updateFastReply(select) {
             if (select.dataset.loaded) return;
             select.dataset.loaded = 1;
@@ -115,7 +117,11 @@
             await Promise.all(opts.map(async o => {
                 const name = o.textContent.trim();
                 try {
-                    const res = await fetch(`/index.php?showuser=${o.value}`, { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    // Use FULL URL for fast reply to avoid CORB
+                    const res = await fetch(`${baseUrl}?showuser=${o.value}`, { 
+                        credentials: 'include', 
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+                    });
                     const html = await res.text();
                     const doc = new DOMParser().parseFromString(html, 'text/html');
                     const last = doc.querySelector('.last-post')?.textContent.trim();
@@ -126,13 +132,11 @@
             }));
         }
 
-        // Update fast reply if it exists (even if hidden)
         const fastSelect = document.querySelector('#post_as_selector select#post_as_menu');
         if (fastSelect) {
             updateFastReply(fastSelect);
         }
 
-        // Watch for fast reply being added to DOM (in case it loads later)
         const fastObserver = new MutationObserver(() => {
             const s = document.querySelector('#post_as_selector select#post_as_menu');
             if (s && !s.dataset.loaded) {
