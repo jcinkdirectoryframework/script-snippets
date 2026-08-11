@@ -1,9 +1,6 @@
 (() => {
-    function timeAgo(s) {
-        if (!s) return 'No posts yet';
-        const d = new Date(s);
-        if (isNaN(d)) return 'Unavailable';
-        const x = Math.floor((new Date - d) / 1e3);
+    function calculateTimeAgo(date) {
+        const x = Math.floor((new Date() - date) / 1e3);
         if (x < 60) return 'Just now';
         const m = Math.floor(x / 60);
         if (m < 60) return `${m} minute${m > 1 ? 's' : ''} ago`;
@@ -17,6 +14,46 @@
         if (d2 < 365) return `${mo} month${mo > 1 ? 's' : ''} ago`;
         const y = Math.floor(d2 / 365);
         return `${y} year${y > 1 ? 's' : ''} ago`;
+    }
+
+    function timeAgo(s) {
+        if (!s) return 'No posts yet';
+        
+        // Check if it's already an absolute date
+        const d = new Date(s);
+        if (!isNaN(d)) {
+            // It's a valid date, calculate time ago normally
+            return calculateTimeAgo(d);
+        }
+        
+        // Parse relative time strings like "6 minutes ago", "2 hours ago", etc.
+        const match = s.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$/i);
+        if (match) {
+            const num = parseInt(match[1]);
+            const unit = match[2].toLowerCase();
+            const now = new Date();
+            
+            let pastDate = new Date(now);
+            if (unit.startsWith('minute')) {
+                pastDate.setMinutes(now.getMinutes() - num);
+            } else if (unit.startsWith('hour')) {
+                pastDate.setHours(now.getHours() - num);
+            } else if (unit.startsWith('day')) {
+                pastDate.setDate(now.getDate() - num);
+            } else if (unit.startsWith('week')) {
+                pastDate.setDate(now.getDate() - (num * 7));
+            } else if (unit.startsWith('month')) {
+                pastDate.setMonth(now.getMonth() - num);
+            } else if (unit.startsWith('year')) {
+                pastDate.setFullYear(now.getFullYear() - num);
+            }
+            return calculateTimeAgo(pastDate);
+        }
+        
+        // Handle "Just now" or other special cases
+        if (s.toLowerCase() === 'just now' || s === 'Now') return 'Just now';
+        
+        return 'Unavailable';
     }
 
     async function updateSubaccounts(s) {
